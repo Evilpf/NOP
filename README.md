@@ -7,6 +7,7 @@ A modular command-line tool for network reconnaissance, OSINT, and network troub
 ## Features
 
 - **Ping** — check host availability and measure latency
+- **Port Scanner** — threaded TCP connect scan with common ports and custom ranges
 - **Interactive menu** — run NOP with no arguments to drop into a guided CLI
 - **Modular design** — easily extend with new network, OSINT, and utility modules
 
@@ -38,15 +39,18 @@ Drops into the NOP prompt where you can run commands with a guided menu.
 
 ~~~bash
 python -m nop.main ping 1.1.1.1
+python -m nop.main portscan 1.1.1.1
+python -m nop.main portscan 1.1.1.1 1-65535
 ~~~
 
 ### Commands
 
-| Command | Arguments | Description |
-|---------|-----------|-------------|
-| `ping`  | `<host>`  | Check if a host is alive and return latency |
-| `help`  | —         | Print the command menu |
-| `exit`  | —         | Quit NOP |
+| Category       | Command      | Arguments        | Description                              |
+|----------------|--------------|------------------|------------------------------------------|
+| **Network**    | `ping`       | `<host>`         | Check if a host is alive and return latency |
+|                | `portscan`   | `<host> [range]` | TCP connect scan, defaults to common ports |
+| **Utility**    | `help`       | —                | Print the command menu                   |
+|                | `exit`       | —                | Quit NOP                                 |
 
 ---
 
@@ -55,11 +59,12 @@ python -m nop.main ping 1.1.1.1
 ~~~
 NOP/
 ├── nop/
-│   ├── main.py        # Entry point + interactive menu
+│   ├── main.py            # Entry point + interactive menu
 │   ├── network/
-│   │   └── ping.py    # ICMP ping implementation
-│   ├── osint/         # OSINT modules (coming soon)
-│   └── utils/         # Shared utilities
+│   │   ├── ping.py        # ICMP ping implementation
+│   │   └── portscan.py    # Threaded TCP port scanner
+│   ├── osint/             # OSINT modules (coming soon)
+│   └── utils/             # Shared utilities
 └── README.md
 ~~~
 
@@ -67,10 +72,22 @@ NOP/
 
 ## Roadmap
 
+### Network / Recon
+- [x] Ping
+- [x] Port scanning
+- [ ] Banner grabbing — pull service banners from open ports
+- [ ] Traceroute — hop-by-hop path to a host
+- [ ] DNS enumeration — resolve, reverse lookup, MX/NS/TXT records
+
+### OSINT
 - [ ] WHOIS lookup
-- [ ] DNS enumeration
-- [ ] Port scanning
-- [ ] OSINT modules (username lookup, IP geolocation)
+- [ ] IP geolocation
+- [ ] HTTP header inspection
+- [ ] Subdomain enumeration
+
+### Troubleshooting
+- [ ] Continuous latency monitor
+- [ ] MTU discovery
 - [ ] Output to JSON / file logging
 
 ---
