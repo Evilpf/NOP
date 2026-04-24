@@ -14,28 +14,31 @@ A modular command-line tool for network reconnaissance, OSINT, and network troub
 
 ## Installation
 
-```bash
+~~~bash
 git clone https://github.com/evilpf/NOP.git
 cd NOP
 python -m venv venv
 source venv/bin/activate  # on fish: source venv/bin/activate.fish
 pip install -r requirements.txt
-```
+~~~
 
 ---
 
 ## Usage
 
 ### Interactive mode
-```bash
+
+~~~bash
 python -m nop.main
-```
+~~~
+
 Drops into the NOP prompt where you can run commands with a guided menu.
 
 ### One-shot CLI
-```bash
+
+~~~bash
 python -m nop.main ping 1.1.1.1
-```
+~~~
 
 ### Commands
 
@@ -49,6 +52,7 @@ python -m nop.main ping 1.1.1.1
 
 ## Project Structure
 
+~~~
 NOP/
 ├── nop/
 │   ├── main.py        # Entry point + interactive menu
@@ -57,6 +61,7 @@ NOP/
 │   ├── osint/         # OSINT modules (coming soon)
 │   └── utils/         # Shared utilities
 └── README.md
+~~~
 
 ---
 
@@ -67,3 +72,9 @@ NOP/
 - [ ] Port scanning
 - [ ] OSINT modules (username lookup, IP geolocation)
 - [ ] Output to JSON / file logging
+
+---
+
+## License
+
+See [LICENSE](LICENSE).
