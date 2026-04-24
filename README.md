@@ -1,7 +1,6 @@
 # NOP — Network OSINT Platform
 
 A modular command-line tool for network reconnaissance, OSINT, and network troubleshooting.
-Built for penetration testers, security researchers, and network engineers who want a fast, extensible terminal-based toolkit.
 
 ---
 
