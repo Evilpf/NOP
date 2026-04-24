@@ -5,6 +5,7 @@ from nop.network.ping import ping_host
 from nop.network.portscan import port_scan
 from nop.network.dns import dns_lookup
 from nop.osint.whois_lookup import whois_lookup
+from nop.osint.headers import get_headers
 from nop.utils.validators import validate_target, is_valid_port, is_domain
 
 BANNER = r"""
@@ -28,6 +29,7 @@ MENU = """
 ├────────────┼─────────────────────────────┤
 │ OSINT      │                             │
 │  whois     │ <domain>                    │
+│  headers   │ <url>                       │
 ├────────────┼─────────────────────────────┤
 │  help      │ show this menu              │
 │  exit      │ quit                        │
@@ -129,7 +131,6 @@ def handle_command(parts):
                 print("Usage: whois <domain>")
                 print("       whois google.com")
                 return
-            # whois only works on domains not IPs
             if not is_domain(parts[1]):
                 print("  ✗  whois requires a domain name e.g. google.com")
                 return
@@ -147,6 +148,35 @@ def handle_command(parts):
                             print(f"    {v}")
                     else:
                         print(f"  {label:<20} {value}")
+
+        case "headers":
+            if len(parts) < 2:
+                print("Usage: headers <url>")
+                print("       headers google.com")
+                print("       headers https://google.com")
+                return
+            print(f"  fetching headers for {parts[1]}...")
+            result = get_headers(parts[1])
+            if result.get("error"):
+                print(f"  ✗  {result['error']}")
+                return
+            print(f"\n  STATUS  {result['status']}")
+
+            # tech stack headers
+            if result["tech"]:
+                print(f"\n  TECH STACK")
+                for k, v in result["tech"].items():
+                    print(f"    {k:<30} {v}")
+            else:
+                print(f"\n  TECH STACK    none detected")
+
+            # security headers — flag missing ones as a finding
+            print(f"\n  SECURITY HEADERS")
+            for h, info in result["security"].items():
+                if info["present"]:
+                    print(f"    ✓  {h}")
+                else:
+                    print(f"    ✗  {h:<40} MISSING")
 
         case "help":
             print(MENU)

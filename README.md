@@ -1,7 +1,6 @@
 # NOP — Network OSINT Platform
 
 A modular command-line tool for network reconnaissance, OSINT, and network troubleshooting.
-Built for penetration testers, security researchers, and network engineers who want a fast, extensible terminal-based toolkit.
 
 ---
 
@@ -11,6 +10,7 @@ Built for penetration testers, security researchers, and network engineers who w
 - **Port Scanner** — threaded TCP connect scan with auto banner grabbing
 - **DNS Lookup** — resolve hosts, reverse lookup IPs, query any record type
 - **WHOIS** — domain registration info, registrar, dates, name servers
+- **HTTP Headers** — inspect response headers, detect tech stack, flag missing security headers
 - **Input Validation** — all commands validate targets before execution
 - **Interactive menu** — run NOP with no arguments to drop into a guided CLI
 - **Modular design** — easily extend with new network, OSINT, and utility modules
@@ -49,6 +49,7 @@ python -m nop.main dns google.com
 python -m nop.main dns google.com MX
 python -m nop.main dns 8.8.8.8
 python -m nop.main whois google.com
+python -m nop.main headers google.com
 ~~~
 
 ### Commands
@@ -59,6 +60,7 @@ python -m nop.main whois google.com
 |             | `portscan` | `<host> [range]`    | TCP connect scan with auto banner grabbing     |
 |             | `dns`      | `<host\|ip> [type]` | Resolve host, reverse lookup IP, query records |
 | **OSINT**   | `whois`    | `<domain>`          | Domain registration info and name servers      |
+|             | `headers`  | `<url>`             | HTTP headers, tech stack, security header audit|
 | **Utility** | `help`     | —                   | Print the command menu                         |
 |             | `exit`     | —                   | Quit NOP                                       |
 
@@ -87,7 +89,7 @@ NOP/
 │   │   └── sweep.py         # Ping sweep (coming soon)
 │   ├── osint/
 │   │   ├── whois_lookup.py  # WHOIS domain lookup
-│   │   ├── headers.py       # HTTP header inspection (coming soon)
+│   │   ├── headers.py       # HTTP header inspection + security audit
 │   │   ├── reverse_dns.py   # Bulk reverse DNS (coming soon)
 │   │   └── subdomains.py    # Subdomain enumeration (coming soon)
 │   └── utils/
@@ -110,8 +112,8 @@ NOP/
 
 ### OSINT
 - [x] WHOIS lookup
+- [x] HTTP header inspection + security audit
 - [ ] IP geolocation
-- [ ] HTTP header inspection
 - [ ] Subdomain enumeration
 - [ ] Bulk reverse DNS
 
