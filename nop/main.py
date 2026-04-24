@@ -4,9 +4,10 @@ import sys
 from nop.network.ping import ping_host
 from nop.network.portscan import port_scan
 from nop.network.dns import dns_lookup
+from nop.network.sweep import sweep
 from nop.osint.whois_lookup import whois_lookup
 from nop.osint.headers import get_headers
-from nop.utils.validators import validate_target, is_valid_port, is_domain
+from nop.utils.validators import validate_target, is_valid_port, is_domain, is_cidr
 
 BANNER = r"""
  _   _  ___  ____  
@@ -26,6 +27,7 @@ MENU = """
 │  ping      │ <host>                      │
 │  portscan  │ <host> [range]              │
 │  dns       │ <host|ip> [record_type]     │
+│  sweep     │ <cidr>                      │
 ├────────────┼─────────────────────────────┤
 │ OSINT      │                             │
 │  whois     │ <domain>                    │
@@ -126,6 +128,28 @@ def handle_command(parts):
                     for v in r["records"]:
                         print(f"    {v}")
 
+        case "sweep":
+            if len(parts) < 2:
+                print("Usage: sweep <cidr>")
+                print("       sweep 192.168.1.0/24")
+                print("       sweep 10.0.0.0/16")
+                return
+            if not is_cidr(parts[1]):
+                print("  ✗  invalid CIDR range — use format 192.168.1.0/24")
+                return
+            print(f"  sweeping {parts[1]}...")
+            result = sweep(parts[1])
+            if result.get("error"):
+                print(f"  ✗  {result['error']}")
+            elif not result["alive"]:
+                print(f"  no hosts found ({result['total_scanned']} scanned)")
+            else:
+                print(f"\n  {'IP':<20} STATUS")
+                print(f"  {'─'*20} {'─'*6}")
+                for ip in result["alive"]:
+                    print(f"  {ip:<20} ✓ up")
+                print(f"\n  {result['total_alive']} host(s) up — {result['total_scanned']} scanned")
+
         case "whois":
             if len(parts) < 2:
                 print("Usage: whois <domain>")
@@ -161,16 +185,12 @@ def handle_command(parts):
                 print(f"  ✗  {result['error']}")
                 return
             print(f"\n  STATUS  {result['status']}")
-
-            # tech stack headers
             if result["tech"]:
                 print(f"\n  TECH STACK")
                 for k, v in result["tech"].items():
                     print(f"    {k:<30} {v}")
             else:
                 print(f"\n  TECH STACK    none detected")
-
-            # security headers — flag missing ones as a finding
             print(f"\n  SECURITY HEADERS")
             for h, info in result["security"].items():
                 if info["present"]:

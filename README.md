@@ -9,6 +9,7 @@ A modular command-line tool for network reconnaissance, OSINT, and network troub
 - **Ping** — check host availability and measure latency
 - **Port Scanner** — threaded TCP connect scan with auto banner grabbing
 - **DNS Lookup** — resolve hosts, reverse lookup IPs, query any record type
+- **Sweep** — ping sweep an entire subnet to discover live hosts
 - **WHOIS** — domain registration info, registrar, dates, name servers
 - **HTTP Headers** — inspect response headers, detect tech stack, flag missing security headers
 - **Input Validation** — all commands validate targets before execution
@@ -50,6 +51,7 @@ python -m nop.main dns google.com MX
 python -m nop.main dns 8.8.8.8
 python -m nop.main whois google.com
 python -m nop.main headers google.com
+python -m nop.main sweep 192.168.1.0/24
 ~~~
 
 ### Commands
@@ -59,6 +61,7 @@ python -m nop.main headers google.com
 | **Network** | `ping`     | `<host>`            | Check if a host is alive and return latency    |
 |             | `portscan` | `<host> [range]`    | TCP connect scan with auto banner grabbing     |
 |             | `dns`      | `<host\|ip> [type]` | Resolve host, reverse lookup IP, query records |
+|             | `sweep`    | `<cidr>`            | Ping sweep a subnet to find live hosts         |
 | **OSINT**   | `whois`    | `<domain>`          | Domain registration info and name servers      |
 |             | `headers`  | `<url>`             | HTTP headers, tech stack, security header audit|
 | **Utility** | `help`     | —                   | Print the command menu                         |
@@ -86,7 +89,7 @@ NOP/
 │   │   ├── ping.py          # ICMP ping implementation
 │   │   ├── portscan.py      # Threaded TCP port scanner + banner grabbing
 │   │   ├── dns.py           # DNS resolution and record queries
-│   │   └── sweep.py         # Ping sweep (coming soon)
+│   │   └── sweep.py         # Threaded ping sweep across subnets
 │   ├── osint/
 │   │   ├── whois_lookup.py  # WHOIS domain lookup
 │   │   ├── headers.py       # HTTP header inspection + security audit
@@ -107,7 +110,7 @@ NOP/
 - [x] Ping
 - [x] Port scanning + banner grabbing
 - [x] DNS enumeration
-- [ ] Ping sweep across subnets
+- [x] Ping sweep across subnets
 - [ ] Traceroute
 
 ### OSINT
