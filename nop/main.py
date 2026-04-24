@@ -3,6 +3,7 @@ import argparse
 import sys
 from nop.network.ping import ping_host
 from nop.network.portscan import port_scan
+from nop.utils.validators import validate_target, is_valid_port
 
 BANNER = r"""
  _   _  ___  ____  
@@ -39,6 +40,11 @@ def handle_command(parts):
         if len(parts) < 2:
             print("Usage: ping <host>")
             return
+        # validate before we do anything
+        t = validate_target(parts[1])
+        if not t["valid"]:
+            print(f"  ✗  {t['error']}")
+            return
         result = ping_host(parts[1])
         if result.get("alive"):
             print(f"  ✓  {result['host']} is up  |  latency: {result['latency']} ms")
@@ -51,12 +57,21 @@ def handle_command(parts):
             print("       portscan 1.1.1.1           # scans common ports")
             print("       portscan 1.1.1.1 1-65535    # scans port range")
             return
+        # validate before we do anything
+        t = validate_target(parts[1])
+        if not t["valid"]:
+            print(f"  ✗  {t['error']}")
+            return
         host = parts[1]
         ports = None
-        remaining = [p for p in parts[2:]]  # fixed: was parts[2:1] which always returns empty
+        remaining = [p for p in parts[2:]]
         if remaining:
             try:
                 start, end = remaining[0].split("-")
+                # validate both ends of the range
+                if not is_valid_port(start) or not is_valid_port(end):
+                    print("  ✗  port range must be between 1 and 65535")
+                    return
                 ports = list(range(int(start), int(end) + 1))
             except ValueError:
                 print("  invalid range format — use start-end e.g. 1-1024")
