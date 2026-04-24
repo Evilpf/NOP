@@ -5,9 +5,10 @@ from nop.network.ping import ping_host
 from nop.network.portscan import port_scan
 from nop.network.dns import dns_lookup
 from nop.network.sweep import sweep
+from nop.network.geoip import geoip_lookup
 from nop.osint.whois_lookup import whois_lookup
 from nop.osint.headers import get_headers
-from nop.utils.validators import validate_target, is_valid_port, is_domain, is_cidr
+from nop.utils.validators import validate_target, is_valid_port, is_domain, is_cidr, is_ip, resolve
 
 BANNER = r"""
  _   _  ___  ____  
@@ -28,6 +29,7 @@ MENU = """
 │  portscan  │ <host> [range]              │
 │  dns       │ <host|ip> [record_type]     │
 │  sweep     │ <cidr>                      │
+│  geoip     │ <ip|domain>                 │
 ├────────────┼─────────────────────────────┤
 │ OSINT      │                             │
 │  whois     │ <domain>                    │
@@ -149,6 +151,35 @@ def handle_command(parts):
                 for ip in result["alive"]:
                     print(f"  {ip:<20} ✓ up")
                 print(f"\n  {result['total_alive']} host(s) up — {result['total_scanned']} scanned")
+
+        case "geoip":
+            if len(parts) < 2:
+                print("Usage: geoip <ip|domain>")
+                print("       geoip 1.1.1.1")
+                print("       geoip google.com")
+                return
+            t = validate_target(parts[1])
+            if not t["valid"]:
+                print(f"  ✗  {t['error']}")
+                return
+            # if its a domain resolve it to an IP first
+            target = parts[1]
+            if not is_ip(target):
+                resolved = resolve(target)
+                if not resolved:
+                    print(f"  ✗  could not resolve {target}")
+                    return
+                print(f"  resolved {target} → {resolved}")
+                target = resolved
+            print(f"  looking up {target}...")
+            result = geoip_lookup(target)
+            if result.get("error"):
+                print(f"  ✗  {result['error']}")
+            else:
+                print()
+                for field, value in result["data"].items():
+                    if value:
+                        print(f"  {field.upper():<12} {value}")
 
         case "whois":
             if len(parts) < 2:
