@@ -1,8 +1,8 @@
 # nop/main.py
-
 import argparse
 import sys
 from nop.network.ping import ping_host
+from nop.network.portscan import port_scan
 
 BANNER = r"""
  _   _  ___  ____  
@@ -20,6 +20,7 @@ MENU = """
 ├────────────┬────────────────┤
 │ Network    │                │
 │  ping      │ <host>         │
+│  portscan  │ <host> [range] │
 ├────────────┼────────────────┤
 │ OSINT      │                │
 │  (soon)    │                │
@@ -43,6 +44,32 @@ def handle_command(parts):
             print(f"  ✓  {result['host']} is up  |  latency: {result['latency']} ms")
         else:
             print(f"  ✗  {result['host']} is unreachable  |  {result.get('error', '')}")
+
+    elif cmd == "portscan":
+        if len(parts) < 2:
+            print("Usage: portscan <host> [port-range]")
+            print("       portscan 1.1.1.1           # scans common ports")
+            print("       portscan 1.1.1.1 1-65535    # scans port range")
+            return
+        host = parts[1]
+        ports = None
+        if len(parts) == 3:
+            try:
+                start, end = parts[2].split("-")
+                ports = list(range(int(start), int(end) + 1))
+            except ValueError:
+                print("  invalid range format — use start-end e.g. 1-1024")
+                return
+        print(f"  scanning {host}...")
+        result = port_scan(host, ports)
+        if not result["open_ports"]:
+            print(f"  no open ports found ({result['total_scanned']} scanned)")
+        else:
+            print(f"\n  {'PORT':<8} {'SERVICE'}")
+            print(f"  {'─'*8} {'─'*12}")
+            for p in result["open_ports"]:
+                print(f"  {p['port']:<8} {p['service']}")
+            print(f"\n  {len(result['open_ports'])} open port(s) — {result['total_scanned']} scanned")
 
     elif cmd == "help":
         print(MENU)
@@ -80,4 +107,3 @@ if __name__ == "__main__" or len(sys.argv) == 1:
     interactive_mode()
 else:
     cli_mode()
-
