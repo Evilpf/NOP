@@ -15,19 +15,19 @@ BANNER = r"""
 """
 
 MENU = """
-┌─────────────────────────────┐
-│         COMMANDS            │
-├────────────┬────────────────┤
-│ Network    │                │
-│  ping      │ <host>         │
-│  portscan  │ <host> [range] │
-├────────────┼────────────────┤
-│ OSINT      │                │
-│  (soon)    │                │
-├────────────┼────────────────┤
-│  help      │ show this menu │
-│  exit      │ quit           │
-└────────────┴────────────────┘
+┌──────────────────────────────────────────┐
+│                 COMMANDS                 │
+├────────────┬─────────────────────────────┤
+│ Network    │                             │
+│  ping      │ <host>                      │
+│  portscan  │ <host> [range]              │
+├────────────┼─────────────────────────────┤
+│ OSINT      │                             │
+│  (soon)    │                             │
+├────────────┼─────────────────────────────┤
+│  help      │ show this menu              │
+│  exit      │ quit                        │
+└────────────┴─────────────────────────────┘
 """
 
 def handle_command(parts):
@@ -47,15 +47,16 @@ def handle_command(parts):
 
     elif cmd == "portscan":
         if len(parts) < 2:
-            print("Usage: portscan <host> [port-range]")
+            print("Usage: portscan <host> [range]")
             print("       portscan 1.1.1.1           # scans common ports")
             print("       portscan 1.1.1.1 1-65535    # scans port range")
             return
         host = parts[1]
         ports = None
-        if len(parts) == 3:
+        remaining = [p for p in parts[2:]]  # fixed: was parts[2:1] which always returns empty
+        if remaining:
             try:
-                start, end = parts[2].split("-")
+                start, end = remaining[0].split("-")
                 ports = list(range(int(start), int(end) + 1))
             except ValueError:
                 print("  invalid range format — use start-end e.g. 1-1024")
@@ -65,10 +66,11 @@ def handle_command(parts):
         if not result["open_ports"]:
             print(f"  no open ports found ({result['total_scanned']} scanned)")
         else:
-            print(f"\n  {'PORT':<8} {'SERVICE'}")
-            print(f"  {'─'*8} {'─'*12}")
+            print(f"\n  {'PORT':<8} {'SERVICE':<14} {'BANNER'}")
+            print(f"  {'─'*8} {'─'*14} {'─'*30}")
             for p in result["open_ports"]:
-                print(f"  {p['port']:<8} {p['service']}")
+                banner = p["banner"] or ""
+                print(f"  {p['port']:<8} {p['service']:<14} {banner}")
             print(f"\n  {len(result['open_ports'])} open port(s) — {result['total_scanned']} scanned")
 
     elif cmd == "help":
