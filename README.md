@@ -10,6 +10,7 @@ Built for penetration testers, security researchers, and network engineers who w
 - **Ping** — check host availability and measure latency
 - **Port Scanner** — threaded TCP connect scan with auto banner grabbing
 - **DNS Lookup** — resolve hosts, reverse lookup IPs, query any record type
+- **WHOIS** — domain registration info, registrar, dates, name servers
 - **Input Validation** — all commands validate targets before execution
 - **Interactive menu** — run NOP with no arguments to drop into a guided CLI
 - **Modular design** — easily extend with new network, OSINT, and utility modules
@@ -47,17 +48,19 @@ python -m nop.main portscan 1.1.1.1 1-65535
 python -m nop.main dns google.com
 python -m nop.main dns google.com MX
 python -m nop.main dns 8.8.8.8
+python -m nop.main whois google.com
 ~~~
 
 ### Commands
 
-| Category    | Command    | Arguments              | Description                                  |
-|-------------|------------|------------------------|----------------------------------------------|
-| **Network** | `ping`     | `<host>`               | Check if a host is alive and return latency  |
-|             | `portscan` | `<host> [range]`       | TCP connect scan with auto banner grabbing   |
-|             | `dns`      | `<host\|ip> [type]`    | Resolve host, reverse lookup IP, query records |
-| **Utility** | `help`     | —                      | Print the command menu                       |
-|             | `exit`     | —                      | Quit NOP                                     |
+| Category    | Command    | Arguments           | Description                                    |
+|-------------|------------|---------------------|------------------------------------------------|
+| **Network** | `ping`     | `<host>`            | Check if a host is alive and return latency    |
+|             | `portscan` | `<host> [range]`    | TCP connect scan with auto banner grabbing     |
+|             | `dns`      | `<host\|ip> [type]` | Resolve host, reverse lookup IP, query records |
+| **OSINT**   | `whois`    | `<domain>`          | Domain registration info and name servers      |
+| **Utility** | `help`     | —                   | Print the command menu                         |
+|             | `exit`     | —                   | Quit NOP                                       |
 
 ### DNS Record Types
 
@@ -83,7 +86,7 @@ NOP/
 │   │   ├── dns.py           # DNS resolution and record queries
 │   │   └── sweep.py         # Ping sweep (coming soon)
 │   ├── osint/
-│   │   ├── whois_lookup.py  # WHOIS lookup (coming soon)
+│   │   ├── whois_lookup.py  # WHOIS domain lookup
 │   │   ├── headers.py       # HTTP header inspection (coming soon)
 │   │   ├── reverse_dns.py   # Bulk reverse DNS (coming soon)
 │   │   └── subdomains.py    # Subdomain enumeration (coming soon)
@@ -106,7 +109,7 @@ NOP/
 - [ ] Traceroute
 
 ### OSINT
-- [ ] WHOIS lookup
+- [x] WHOIS lookup
 - [ ] IP geolocation
 - [ ] HTTP header inspection
 - [ ] Subdomain enumeration

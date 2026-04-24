@@ -1,3 +1,39 @@
+# nop/main.py
+import argparse
+import sys
+from nop.network.ping import ping_host
+from nop.network.portscan import port_scan
+from nop.network.dns import dns_lookup
+from nop.osint.whois_lookup import whois_lookup
+from nop.utils.validators import validate_target, is_valid_port, is_domain
+
+BANNER = r"""
+ _   _  ___  ____  
+| \ | |/ _ \|  _ \ 
+|  \| | | | | |_) |
+| |\  | |_| |  __/ 
+|_| \_|\___/|_|    
+
+  Network OSINT Platform
+"""
+
+MENU = """
+┌──────────────────────────────────────────┐
+│                 COMMANDS                 │
+├────────────┬─────────────────────────────┤
+│ Network    │                             │
+│  ping      │ <host>                      │
+│  portscan  │ <host> [range]              │
+│  dns       │ <host|ip> [record_type]     │
+├────────────┼─────────────────────────────┤
+│ OSINT      │                             │
+│  whois     │ <domain>                    │
+├────────────┼─────────────────────────────┤
+│  help      │ show this menu              │
+│  exit      │ quit                        │
+└────────────┴─────────────────────────────┘
+"""
+
 def handle_command(parts):
     if not parts:
         return
@@ -88,6 +124,30 @@ def handle_command(parts):
                     for v in r["records"]:
                         print(f"    {v}")
 
+        case "whois":
+            if len(parts) < 2:
+                print("Usage: whois <domain>")
+                print("       whois google.com")
+                return
+            # whois only works on domains not IPs
+            if not is_domain(parts[1]):
+                print("  ✗  whois requires a domain name e.g. google.com")
+                return
+            print(f"  looking up {parts[1]}...")
+            result = whois_lookup(parts[1])
+            if result.get("error"):
+                print(f"  ✗  {result['error']}")
+            else:
+                print()
+                for field, value in result["data"].items():
+                    label = field.replace("_", " ").upper()
+                    if isinstance(value, list):
+                        print(f"  {label}")
+                        for v in value:
+                            print(f"    {v}")
+                    else:
+                        print(f"  {label:<20} {value}")
+
         case "help":
             print(MENU)
 
@@ -97,3 +157,30 @@ def handle_command(parts):
 
         case _:
             print(f"  unknown command: '{cmd}' — type 'help' for the menu")
+
+
+def interactive_mode():
+    print(BANNER)
+    print(MENU)
+    while True:
+        try:
+            raw = input("nop > ").strip()
+            if raw:
+                handle_command(raw.split())
+        except (KeyboardInterrupt, EOFError):
+            print("\nbye.")
+            sys.exit(0)
+
+
+def cli_mode():
+    parser = argparse.ArgumentParser(prog="nop")
+    parser.add_argument("command")
+    parser.add_argument("target", nargs="?")
+    args = parser.parse_args()
+    handle_command([args.command, args.target] if args.target else [args.command])
+
+
+if __name__ == "__main__" or len(sys.argv) == 1:
+    interactive_mode()
+else:
+    cli_mode()
