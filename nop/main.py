@@ -1,6 +1,7 @@
 # nop/main.py
 import argparse
 import sys
+import os
 from nop.network.ping import ping_host
 from nop.network.portscan import port_scan
 from nop.network.dns import dns_lookup
