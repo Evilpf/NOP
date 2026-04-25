@@ -11,6 +11,7 @@ A modular command-line tool for network reconnaissance, OSINT, and network troub
 - **DNS Lookup** — resolve hosts, reverse lookup IPs, query any record type
 - **Sweep** — ping sweep an entire subnet to discover live hosts
 - **GeoIP** — geolocate an IP or domain to country, city, ISP, ASN
+- **SSL** — inspect TLS certificates, expiry, issuer, SANs and cipher info
 - **WHOIS** — domain registration info, registrar, dates, name servers
 - **HTTP Headers** — inspect response headers, detect tech stack, flag missing security headers
 - **Input Validation** — all commands validate targets before execution
@@ -53,23 +54,26 @@ python -m nop.main dns 8.8.8.8
 python -m nop.main sweep 192.168.1.0/24
 python -m nop.main geoip 1.1.1.1
 python -m nop.main geoip google.com
+python -m nop.main ssl google.com
+python -m nop.main ssl google.com 8443
 python -m nop.main whois google.com
 python -m nop.main headers google.com
 ~~~
 
 ### Commands
 
-| Category    | Command    | Arguments           | Description                                    |
-|-------------|------------|---------------------|------------------------------------------------|
-| **Network** | `ping`     | `<host>`            | Check if a host is alive and return latency    |
-|             | `portscan` | `<host> [range]`    | TCP connect scan with auto banner grabbing     |
-|             | `dns`      | `<host\|ip> [type]` | Resolve host, reverse lookup IP, query records |
-|             | `sweep`    | `<cidr>`            | Ping sweep a subnet to find live hosts         |
-|             | `geoip`    | `<ip\|domain>`      | Geolocate an IP to country, city, ISP, ASN     |
-| **OSINT**   | `whois`    | `<domain>`          | Domain registration info and name servers      |
-|             | `headers`  | `<url>`             | HTTP headers, tech stack, security header audit|
-| **Utility** | `help`     | —                   | Print the command menu                         |
-|             | `exit`     | —                   | Quit NOP                                       |
+| Category    | Command    | Arguments           | Description                                      |
+|-------------|------------|---------------------|--------------------------------------------------|
+| **Network** | `ping`     | `<host>`            | Check if a host is alive and return latency      |
+|             | `portscan` | `<host> [range]`    | TCP connect scan with auto banner grabbing       |
+|             | `dns`      | `<host\|ip> [type]` | Resolve host, reverse lookup IP, query records   |
+|             | `sweep`    | `<cidr>`            | Ping sweep a subnet to find live hosts           |
+|             | `geoip`    | `<ip\|domain>`      | Geolocate an IP to country, city, ISP, ASN       |
+|             | `ssl`      | `<host> [port]`     | Inspect TLS cert, expiry, SANs, cipher           |
+| **OSINT**   | `whois`    | `<domain>`          | Domain registration info and name servers        |
+|             | `headers`  | `<url>`             | HTTP headers, tech stack, security header audit  |
+| **Utility** | `help`     | —                   | Print the command menu                           |
+|             | `exit`     | —                   | Quit NOP                                         |
 
 ### DNS Record Types
 
@@ -94,7 +98,8 @@ NOP/
 │   │   ├── portscan.py      # Threaded TCP port scanner + banner grabbing
 │   │   ├── dns.py           # DNS resolution and record queries
 │   │   ├── sweep.py         # Threaded ping sweep across subnets
-│   │   └── geoip.py         # IP geolocation via ip-api.com
+│   │   ├── geoip.py         # IP geolocation via ip-api.com
+│   │   └── ssl.py           # TLS certificate inspection
 │   ├── osint/
 │   │   ├── whois_lookup.py  # WHOIS domain lookup
 │   │   ├── headers.py       # HTTP header inspection + security audit
@@ -117,6 +122,7 @@ NOP/
 - [x] DNS enumeration
 - [x] Ping sweep across subnets
 - [x] IP geolocation
+- [x] SSL/TLS certificate inspection
 - [ ] Traceroute
 
 ### OSINT

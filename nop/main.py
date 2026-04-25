@@ -6,6 +6,7 @@ from nop.network.portscan import port_scan
 from nop.network.dns import dns_lookup
 from nop.network.sweep import sweep
 from nop.network.geoip import geoip_lookup
+from nop.network.ssl import get_ssl_info
 from nop.osint.whois_lookup import whois_lookup
 from nop.osint.headers import get_headers
 from nop.utils.validators import validate_target, is_valid_port, is_domain, is_cidr, is_ip, resolve
@@ -30,6 +31,7 @@ MENU = """
 │  dns       │ <host|ip> [record_type]     │
 │  sweep     │ <cidr>                      │
 │  geoip     │ <ip|domain>                 │
+│  ssl       │ <host> [port]               │
 ├────────────┼─────────────────────────────┤
 │ OSINT      │                             │
 │  whois     │ <domain>                    │
@@ -162,7 +164,6 @@ def handle_command(parts):
             if not t["valid"]:
                 print(f"  ✗  {t['error']}")
                 return
-            # if its a domain resolve it to an IP first
             target = parts[1]
             if not is_ip(target):
                 resolved = resolve(target)
@@ -180,6 +181,43 @@ def handle_command(parts):
                 for field, value in result["data"].items():
                     if value:
                         print(f"  {field.upper():<12} {value}")
+
+        case "ssl":
+            if len(parts) < 2:
+                print("Usage: ssl <host> [port]")
+                print("       ssl google.com")
+                print("       ssl google.com 8443")
+                return
+            t = validate_target(parts[1])
+            if not t["valid"]:
+                print(f"  ✗  {t['error']}")
+                return
+            port = 443
+            if len(parts) == 3:
+                if not is_valid_port(parts[2]):
+                    print("  ✗  invalid port")
+                    return
+                port = int(parts[2])
+            print(f"  grabbing SSL info for {parts[1]}:{port}...")
+            result = get_ssl_info(parts[1], port)
+            if result.get("error"):
+                print(f"  ✗  {result['error']}")
+            else:
+                # flag expiry warning if under 30 days
+                expiry_warn = " ⚠ EXPIRING SOON" if 0 <= result["days_left"] <= 30 else ""
+                expired_flag = " ✗ EXPIRED" if result["expired"] else ""
+                print()
+                print(f"  {'SUBJECT':<16} {result['subject']}")
+                print(f"  {'ISSUER':<16} {result['issuer']}")
+                print(f"  {'VALID FROM':<16} {result['valid_from']}")
+                print(f"  {'VALID UNTIL':<16} {result['valid_until']}{expiry_warn}{expired_flag}")
+                print(f"  {'DAYS LEFT':<16} {result['days_left']}")
+                print(f"  {'TLS VERSION':<16} {result['tls_version']}")
+                print(f"  {'CIPHER':<16} {result['cipher']}")
+                if result["sans"]:
+                    print(f"\n  SUBJECT ALT NAMES")
+                    for san in result["sans"]:
+                        print(f"    {san}")
 
         case "whois":
             if len(parts) < 2:
