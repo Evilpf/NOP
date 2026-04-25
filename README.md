@@ -17,6 +17,7 @@ A modular command-line tool for network reconnaissance, OSINT, and network troub
 - **HTTP Headers** — inspect response headers, detect tech stack, flag missing security headers
 - **Subdomains** — threaded brute force subdomain enumeration
 - **Reverse DNS** — bulk reverse DNS lookup across a subnet
+- **Output** — save any command result to JSON or plaintext with `--json` or `--save`
 - **Input Validation** — all commands validate targets before execution
 - **Interactive menu** — run NOP with no arguments to drop into a guided CLI
 - **Modular design** — easily extend with new network, OSINT, and utility modules
@@ -64,23 +65,43 @@ python -m nop.main subdomains google.com
 python -m nop.main rdns 192.168.1.0/24
 ~~~
 
+### Saving Output
+
+Append `--save` or `--json` to any command to save the result:
+
+~~~bash
+nop > portscan 1.1.1.1 --json       # save as JSON
+nop > subdomains google.com --save   # save as plaintext
+nop > outputs                        # list all saved results
+~~~
+
+Saved files go to `~/.nop/output/` and are named by command, target, and timestamp.
+
 ### Commands
 
-| Category    | Command       | Arguments           | Description                                      |
-|-------------|---------------|---------------------|--------------------------------------------------|
-| **Network** | `ping`        | `<host>`            | Check if a host is alive and return latency      |
-|             | `portscan`    | `<host> [range]`    | TCP connect scan with auto banner grabbing       |
-|             | `dns`         | `<host\|ip> [type]` | Resolve host, reverse lookup IP, query records   |
-|             | `sweep`       | `<cidr>`            | Ping sweep a subnet to find live hosts           |
-|             | `geoip`       | `<ip\|domain>`      | Geolocate an IP to country, city, ISP, ASN       |
-|             | `ssl`         | `<host> [port]`     | Inspect TLS cert, expiry, SANs, cipher           |
-|             | `traceroute`  | `<host>`            | Hop by hop path to a target                      |
-| **OSINT**   | `whois`       | `<domain>`          | Domain registration info and name servers        |
-|             | `headers`     | `<url>`             | HTTP headers, tech stack, security header audit  |
-|             | `subdomains`  | `<domain>`          | Brute force subdomain enumeration                |
-|             | `rdns`        | `<cidr>`            | Bulk reverse DNS lookup across a subnet          |
-| **Utility** | `help`        | —                   | Print the command menu                           |
-|             | `exit`        | —                   | Quit NOP                                         |
+| Category    | Command       | Arguments              | Description                                      |
+|-------------|---------------|------------------------|--------------------------------------------------|
+| **Network** | `ping`        | `<host>`               | Check if a host is alive and return latency      |
+|             | `portscan`    | `<host> [range]`       | TCP connect scan with auto banner grabbing       |
+|             | `dns`         | `<host\|ip> [type]`    | Resolve host, reverse lookup IP, query records   |
+|             | `sweep`       | `<cidr>`               | Ping sweep a subnet to find live hosts           |
+|             | `geoip`       | `<ip\|domain>`         | Geolocate an IP to country, city, ISP, ASN       |
+|             | `ssl`         | `<host> [port]`        | Inspect TLS cert, expiry, SANs, cipher           |
+|             | `traceroute`  | `<host>`               | Hop by hop path to a target                      |
+| **OSINT**   | `whois`       | `<domain>`             | Domain registration info and name servers        |
+|             | `headers`     | `<url>`                | HTTP headers, tech stack, security header audit  |
+|             | `subdomains`  | `<domain>`             | Brute force subdomain enumeration                |
+|             | `rdns`        | `<cidr>`               | Bulk reverse DNS lookup across a subnet          |
+| **Output**  | `outputs`     | —                      | List all saved results                           |
+| **Utility** | `help`        | —                      | Print the command menu                           |
+|             | `exit`        | —                      | Quit NOP                                         |
+
+### Output Flags
+
+| Flag      | Description                              |
+|-----------|------------------------------------------|
+| `--save`  | Save result as plaintext to `~/.nop/output/` |
+| `--json`  | Save result as JSON to `~/.nop/output/`  |
 
 ### DNS Record Types
 
@@ -115,7 +136,7 @@ NOP/
 │   │   └── reverse_dns.py   # Bulk reverse DNS across subnets
 │   └── utils/
 │       ├── validators.py    # Input validation for hosts, IPs, domains, ports
-│       ├── output.py        # JSON/file logging (coming soon)
+│       ├── output.py        # Save results to JSON or plaintext
 │       └── threading.py     # Threading helpers (coming soon)
 └── README.md
 ~~~
@@ -141,7 +162,7 @@ NOP/
 
 ### Utility
 - [x] Input validation
-- [ ] Output to JSON / file logging
+- [x] Output to JSON / plaintext file logging
 - [ ] Threading helpers
 
 ---

@@ -13,6 +13,7 @@ from nop.osint.headers import get_headers
 from nop.osint.subdomains import subdomain_scan
 from nop.osint.reverse_dns import reverse_dns_sweep
 from nop.utils.validators import validate_target, is_valid_port, is_domain, is_cidr, is_ip, resolve
+from nop.utils.output import save_json, save_txt, list_outputs, OUTPUT_DIR
 
 BANNER = r"""
  _   _  ___  ____  
@@ -41,42 +42,71 @@ MENU = """
 │  whois     │ <domain>                    │
 │  headers   │ <url>                       │
 │  subdomains│ <domain>                    │
-│  rdns      │ <cidr|ip,ip,...>            │
+│  rdns      │ <cidr>                      │
+├────────────┼─────────────────────────────┤
+│ Output     │                             │
+│  outputs   │ list saved results          │
 ├────────────┼─────────────────────────────┤
 │  help      │ show this menu              │
 │  exit      │ quit                        │
 └────────────┴─────────────────────────────┘
+
+  tip: append --save to any command to save output
+  tip: append --json to any command to save as JSON
 """
 
 def handle_command(parts):
     if not parts:
         return
+
+    # check for output flags before routing the command
+    save_as_txt  = "--save" in parts
+    save_as_json = "--json" in parts
+    # strip flags out so they don't confuse command parsing
+    parts = [p for p in parts if p not in ("--save", "--json")]
+
+    if not parts:
+        return
+
     cmd = parts[0].lower()
+    # buffer printed lines if saving so we can write them to file
+    output_lines = []
+
+    def out(line=""):
+        # print and optionally buffer
+        print(line)
+        output_lines.append(line)
 
     match cmd:
         case "ping":
             if len(parts) < 2:
-                print("Usage: ping <host>")
+                out("Usage: ping <host> [--save] [--json]")
                 return
             t = validate_target(parts[1])
             if not t["valid"]:
-                print(f"  ✗  {t['error']}")
+                out(f"  ✗  {t['error']}")
                 return
             result = ping_host(parts[1])
             if result.get("alive"):
-                print(f"  ✓  {result['host']} is up  |  latency: {result['latency']} ms")
+                out(f"  ✓  {result['host']} is up  |  latency: {result['latency']} ms")
             else:
-                print(f"  ✗  {result['host']} is unreachable  |  {result.get('error', '')}")
+                out(f"  ✗  {result['host']} is unreachable  |  {result.get('error', '')}")
+            if save_as_json:
+                path = save_json("ping", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("ping", parts[1], output_lines)
+                print(f"  saved → {path}")
 
         case "portscan":
             if len(parts) < 2:
-                print("Usage: portscan <host> [range]")
-                print("       portscan 1.1.1.1           # scans common ports")
-                print("       portscan 1.1.1.1 1-65535    # scans port range")
+                out("Usage: portscan <host> [range] [--save] [--json]")
+                out("       portscan 1.1.1.1           # scans common ports")
+                out("       portscan 1.1.1.1 1-65535    # scans port range")
                 return
             t = validate_target(parts[1])
             if not t["valid"]:
-                print(f"  ✗  {t['error']}")
+                out(f"  ✗  {t['error']}")
                 return
             host = parts[1]
             ports = None
@@ -85,255 +115,324 @@ def handle_command(parts):
                 try:
                     start, end = remaining[0].split("-")
                     if not is_valid_port(start) or not is_valid_port(end):
-                        print("  ✗  port range must be between 1 and 65535")
+                        out("  ✗  port range must be between 1 and 65535")
                         return
                     ports = list(range(int(start), int(end) + 1))
                 except ValueError:
-                    print("  invalid range format — use start-end e.g. 1-1024")
+                    out("  invalid range format — use start-end e.g. 1-1024")
                     return
-            print(f"  scanning {host}...")
+            out(f"  scanning {host}...")
             result = port_scan(host, ports)
             if not result["open_ports"]:
-                print(f"  no open ports found ({result['total_scanned']} scanned)")
+                out(f"  no open ports found ({result['total_scanned']} scanned)")
             else:
-                print(f"\n  {'PORT':<8} {'SERVICE':<14} {'BANNER'}")
-                print(f"  {'─'*8} {'─'*14} {'─'*30}")
+                out(f"\n  {'PORT':<8} {'SERVICE':<14} {'BANNER'}")
+                out(f"  {'─'*8} {'─'*14} {'─'*30}")
                 for p in result["open_ports"]:
                     banner = p["banner"] or ""
-                    print(f"  {p['port']:<8} {p['service']:<14} {banner}")
-                print(f"\n  {len(result['open_ports'])} open port(s) — {result['total_scanned']} scanned")
+                    out(f"  {p['port']:<8} {p['service']:<14} {banner}")
+                out(f"\n  {len(result['open_ports'])} open port(s) — {result['total_scanned']} scanned")
+            if save_as_json:
+                path = save_json("portscan", host, result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("portscan", host, output_lines)
+                print(f"  saved → {path}")
 
         case "dns":
             if len(parts) < 2:
-                print("Usage: dns <host|ip> [record_type]")
-                print("       dns google.com          # full record dump")
-                print("       dns google.com MX       # specific record type")
-                print("       dns 8.8.8.8             # reverse lookup")
+                out("Usage: dns <host|ip> [record_type] [--save] [--json]")
+                out("       dns google.com          # full record dump")
+                out("       dns google.com MX       # specific record type")
+                out("       dns 8.8.8.8             # reverse lookup")
                 return
             t = validate_target(parts[1])
             if not t["valid"]:
-                print(f"  ✗  {t['error']}")
+                out(f"  ✗  {t['error']}")
                 return
             record_type = parts[2].upper() if len(parts) == 3 else None
             result = dns_lookup(parts[1], record_type)
             if "reverse" in result:
                 r = result["reverse"]
                 if r.get("hostname"):
-                    print(f"  {r['ip']}  →  {r['hostname']}")
+                    out(f"  {r['ip']}  →  {r['hostname']}")
                 else:
-                    print(f"  ✗  no PTR record found  |  {r.get('error', '')}")
+                    out(f"  ✗  no PTR record found  |  {r.get('error', '')}")
             elif "records" in result and isinstance(result["records"], dict):
                 for rtype, values in result["records"].items():
-                    print(f"\n  {rtype}")
+                    out(f"\n  {rtype}")
                     for v in values:
-                        print(f"    {v}")
+                        out(f"    {v}")
             elif "records" in result:
                 r = result["records"]
                 if r.get("error"):
-                    print(f"  ✗  {r['error']}")
+                    out(f"  ✗  {r['error']}")
                 elif not r.get("records"):
-                    print(f"  no {r['type']} records found")
+                    out(f"  no {r['type']} records found")
                 else:
-                    print(f"\n  {r['type']}")
+                    out(f"\n  {r['type']}")
                     for v in r["records"]:
-                        print(f"    {v}")
+                        out(f"    {v}")
+            if save_as_json:
+                path = save_json("dns", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("dns", parts[1], output_lines)
+                print(f"  saved → {path}")
 
         case "sweep":
             if len(parts) < 2:
-                print("Usage: sweep <cidr>")
-                print("       sweep 192.168.1.0/24")
-                print("       sweep 10.0.0.0/16")
+                out("Usage: sweep <cidr> [--save] [--json]")
+                out("       sweep 192.168.1.0/24")
                 return
             if not is_cidr(parts[1]):
-                print("  ✗  invalid CIDR range — use format 192.168.1.0/24")
+                out("  ✗  invalid CIDR range — use format 192.168.1.0/24")
                 return
-            print(f"  sweeping {parts[1]}...")
+            out(f"  sweeping {parts[1]}...")
             result = sweep(parts[1])
             if result.get("error"):
-                print(f"  ✗  {result['error']}")
+                out(f"  ✗  {result['error']}")
             elif not result["alive"]:
-                print(f"  no hosts found ({result['total_scanned']} scanned)")
+                out(f"  no hosts found ({result['total_scanned']} scanned)")
             else:
-                print(f"\n  {'IP':<20} STATUS")
-                print(f"  {'─'*20} {'─'*6}")
+                out(f"\n  {'IP':<20} STATUS")
+                out(f"  {'─'*20} {'─'*6}")
                 for ip in result["alive"]:
-                    print(f"  {ip:<20} ✓ up")
-                print(f"\n  {result['total_alive']} host(s) up — {result['total_scanned']} scanned")
+                    out(f"  {ip:<20} ✓ up")
+                out(f"\n  {result['total_alive']} host(s) up — {result['total_scanned']} scanned")
+            if save_as_json:
+                path = save_json("sweep", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("sweep", parts[1], output_lines)
+                print(f"  saved → {path}")
 
         case "geoip":
             if len(parts) < 2:
-                print("Usage: geoip <ip|domain>")
-                print("       geoip 1.1.1.1")
-                print("       geoip google.com")
+                out("Usage: geoip <ip|domain> [--save] [--json]")
+                out("       geoip 1.1.1.1")
+                out("       geoip google.com")
                 return
             t = validate_target(parts[1])
             if not t["valid"]:
-                print(f"  ✗  {t['error']}")
+                out(f"  ✗  {t['error']}")
                 return
             target = parts[1]
             if not is_ip(target):
                 resolved = resolve(target)
                 if not resolved:
-                    print(f"  ✗  could not resolve {target}")
+                    out(f"  ✗  could not resolve {target}")
                     return
-                print(f"  resolved {target} → {resolved}")
+                out(f"  resolved {target} → {resolved}")
                 target = resolved
-            print(f"  looking up {target}...")
+            out(f"  looking up {target}...")
             result = geoip_lookup(target)
             if result.get("error"):
-                print(f"  ✗  {result['error']}")
+                out(f"  ✗  {result['error']}")
             else:
-                print()
+                out()
                 for field, value in result["data"].items():
                     if value:
-                        print(f"  {field.upper():<12} {value}")
+                        out(f"  {field.upper():<12} {value}")
+            if save_as_json:
+                path = save_json("geoip", target, result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("geoip", target, output_lines)
+                print(f"  saved → {path}")
 
         case "ssl":
             if len(parts) < 2:
-                print("Usage: ssl <host> [port]")
-                print("       ssl google.com")
-                print("       ssl google.com 8443")
+                out("Usage: ssl <host> [port] [--save] [--json]")
+                out("       ssl google.com")
+                out("       ssl google.com 8443")
                 return
             t = validate_target(parts[1])
             if not t["valid"]:
-                print(f"  ✗  {t['error']}")
+                out(f"  ✗  {t['error']}")
                 return
             port = 443
             if len(parts) == 3:
                 if not is_valid_port(parts[2]):
-                    print("  ✗  invalid port")
+                    out("  ✗  invalid port")
                     return
                 port = int(parts[2])
-            print(f"  grabbing SSL info for {parts[1]}:{port}...")
+            out(f"  grabbing SSL info for {parts[1]}:{port}...")
             result = get_ssl_info(parts[1], port)
             if result.get("error"):
-                print(f"  ✗  {result['error']}")
+                out(f"  ✗  {result['error']}")
             else:
                 expiry_warn = " ⚠ EXPIRING SOON" if 0 <= result["days_left"] <= 30 else ""
                 expired_flag = " ✗ EXPIRED" if result["expired"] else ""
-                print()
-                print(f"  {'SUBJECT':<16} {result['subject']}")
-                print(f"  {'ISSUER':<16} {result['issuer']}")
-                print(f"  {'VALID FROM':<16} {result['valid_from']}")
-                print(f"  {'VALID UNTIL':<16} {result['valid_until']}{expiry_warn}{expired_flag}")
-                print(f"  {'DAYS LEFT':<16} {result['days_left']}")
-                print(f"  {'TLS VERSION':<16} {result['tls_version']}")
-                print(f"  {'CIPHER':<16} {result['cipher']}")
+                out()
+                out(f"  {'SUBJECT':<16} {result['subject']}")
+                out(f"  {'ISSUER':<16} {result['issuer']}")
+                out(f"  {'VALID FROM':<16} {result['valid_from']}")
+                out(f"  {'VALID UNTIL':<16} {result['valid_until']}{expiry_warn}{expired_flag}")
+                out(f"  {'DAYS LEFT':<16} {result['days_left']}")
+                out(f"  {'TLS VERSION':<16} {result['tls_version']}")
+                out(f"  {'CIPHER':<16} {result['cipher']}")
                 if result["sans"]:
-                    print(f"\n  SUBJECT ALT NAMES")
+                    out(f"\n  SUBJECT ALT NAMES")
                     for san in result["sans"]:
-                        print(f"    {san}")
+                        out(f"    {san}")
+            if save_as_json:
+                path = save_json("ssl", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("ssl", parts[1], output_lines)
+                print(f"  saved → {path}")
 
         case "traceroute":
             if len(parts) < 2:
-                print("Usage: traceroute <host>")
-                print("       traceroute google.com")
-                print("       traceroute 1.1.1.1")
+                out("Usage: traceroute <host> [--save] [--json]")
+                out("       traceroute google.com")
+                out("       traceroute 1.1.1.1")
                 return
             t = validate_target(parts[1])
             if not t["valid"]:
-                print(f"  ✗  {t['error']}")
+                out(f"  ✗  {t['error']}")
                 return
-            print(f"  tracing route to {parts[1]}...")
+            out(f"  tracing route to {parts[1]}...")
             result = traceroute(parts[1])
             if result.get("error"):
-                print(f"  ✗  {result['error']}")
+                out(f"  ✗  {result['error']}")
             else:
-                print(f"\n  {'HOP':<6} {'IP':<18} {'HOST':<40} {'RTT'}")
-                print(f"  {'─'*6} {'─'*18} {'─'*40} {'─'*10}")
+                out(f"\n  {'HOP':<6} {'IP':<18} {'HOST':<40} {'RTT'}")
+                out(f"  {'─'*6} {'─'*18} {'─'*40} {'─'*10}")
                 for hop in result["hops"]:
-                    ip = hop["ip"] or "*"
+                    ip   = hop["ip"] or "*"
                     host = hop["host"] or "*"
-                    rtt = f"{hop['rtt']} ms" if hop["rtt"] else "*"
-                    print(f"  {hop['hop']:<6} {ip:<18} {host:<40} {rtt}")
+                    rtt  = f"{hop['rtt']} ms" if hop["rtt"] else "*"
+                    out(f"  {hop['hop']:<6} {ip:<18} {host:<40} {rtt}")
+            if save_as_json:
+                path = save_json("traceroute", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("traceroute", parts[1], output_lines)
+                print(f"  saved → {path}")
 
         case "subdomains":
             if len(parts) < 2:
-                print("Usage: subdomains <domain>")
-                print("       subdomains google.com")
+                out("Usage: subdomains <domain> [--save] [--json]")
+                out("       subdomains google.com")
                 return
             if not is_domain(parts[1]):
-                print("  ✗  subdomains requires a domain name e.g. google.com")
+                out("  ✗  subdomains requires a domain name e.g. google.com")
                 return
-            print(f"  scanning subdomains for {parts[1]}...")
+            out(f"  scanning subdomains for {parts[1]}...")
             result = subdomain_scan(parts[1])
             if not result["found"]:
-                print(f"  no subdomains found ({result['total_checked']} checked)")
+                out(f"  no subdomains found ({result['total_checked']} checked)")
             else:
-                print(f"\n  {'SUBDOMAIN':<45} {'IP'}")
-                print(f"  {'─'*45} {'─'*16}")
+                out(f"\n  {'SUBDOMAIN':<45} {'IP'}")
+                out(f"  {'─'*45} {'─'*16}")
                 for s in result["found"]:
-                    print(f"  {s['subdomain']:<45} {s['ip']}")
-                print(f"\n  {result['total_found']} found — {result['total_checked']} checked")
+                    out(f"  {s['subdomain']:<45} {s['ip']}")
+                out(f"\n  {result['total_found']} found — {result['total_checked']} checked")
+            if save_as_json:
+                path = save_json("subdomains", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("subdomains", parts[1], output_lines)
+                print(f"  saved → {path}")
 
         case "rdns":
             if len(parts) < 2:
-                print("Usage: rdns <cidr>")
-                print("       rdns 192.168.1.0/24")
+                out("Usage: rdns <cidr> [--save] [--json]")
+                out("       rdns 192.168.1.0/24")
                 return
             if not is_cidr(parts[1]):
-                print("  ✗  invalid CIDR range — use format 192.168.1.0/24")
+                out("  ✗  invalid CIDR range — use format 192.168.1.0/24")
                 return
-            print(f"  reverse DNS sweep of {parts[1]}...")
+            out(f"  reverse DNS sweep of {parts[1]}...")
             result = reverse_dns_sweep(parts[1])
             if result.get("error"):
-                print(f"  ✗  {result['error']}")
+                out(f"  ✗  {result['error']}")
             elif not result["resolved"]:
-                print(f"  no hostnames resolved ({result['total_scanned']} scanned)")
+                out(f"  no hostnames resolved ({result['total_scanned']} scanned)")
             else:
-                print(f"\n  {'IP':<20} {'HOSTNAME'}")
-                print(f"  {'─'*20} {'─'*40}")
+                out(f"\n  {'IP':<20} {'HOSTNAME'}")
+                out(f"  {'─'*20} {'─'*40}")
                 for r in result["resolved"]:
-                    print(f"  {r['ip']:<20} {r['hostname']}")
-                print(f"\n  {result['total_resolved']} resolved — {result['total_scanned']} scanned")
+                    out(f"  {r['ip']:<20} {r['hostname']}")
+                out(f"\n  {result['total_resolved']} resolved — {result['total_scanned']} scanned")
+            if save_as_json:
+                path = save_json("rdns", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("rdns", parts[1], output_lines)
+                print(f"  saved → {path}")
 
         case "whois":
             if len(parts) < 2:
-                print("Usage: whois <domain>")
-                print("       whois google.com")
+                out("Usage: whois <domain> [--save] [--json]")
+                out("       whois google.com")
                 return
             if not is_domain(parts[1]):
-                print("  ✗  whois requires a domain name e.g. google.com")
+                out("  ✗  whois requires a domain name e.g. google.com")
                 return
-            print(f"  looking up {parts[1]}...")
+            out(f"  looking up {parts[1]}...")
             result = whois_lookup(parts[1])
             if result.get("error"):
-                print(f"  ✗  {result['error']}")
+                out(f"  ✗  {result['error']}")
             else:
-                print()
+                out()
                 for field, value in result["data"].items():
                     label = field.replace("_", " ").upper()
                     if isinstance(value, list):
-                        print(f"  {label}")
+                        out(f"  {label}")
                         for v in value:
-                            print(f"    {v}")
+                            out(f"    {v}")
                     else:
-                        print(f"  {label:<20} {value}")
+                        out(f"  {label:<20} {value}")
+            if save_as_json:
+                path = save_json("whois", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("whois", parts[1], output_lines)
+                print(f"  saved → {path}")
 
         case "headers":
             if len(parts) < 2:
-                print("Usage: headers <url>")
-                print("       headers google.com")
-                print("       headers https://google.com")
+                out("Usage: headers <url> [--save] [--json]")
+                out("       headers google.com")
+                out("       headers https://google.com")
                 return
-            print(f"  fetching headers for {parts[1]}...")
+            out(f"  fetching headers for {parts[1]}...")
             result = get_headers(parts[1])
             if result.get("error"):
-                print(f"  ✗  {result['error']}")
-                return
-            print(f"\n  STATUS  {result['status']}")
-            if result["tech"]:
-                print(f"\n  TECH STACK")
-                for k, v in result["tech"].items():
-                    print(f"    {k:<30} {v}")
+                out(f"  ✗  {result['error']}")
             else:
-                print(f"\n  TECH STACK    none detected")
-            print(f"\n  SECURITY HEADERS")
-            for h, info in result["security"].items():
-                if info["present"]:
-                    print(f"    ✓  {h}")
+                out(f"\n  STATUS  {result['status']}")
+                if result["tech"]:
+                    out(f"\n  TECH STACK")
+                    for k, v in result["tech"].items():
+                        out(f"    {k:<30} {v}")
                 else:
-                    print(f"    ✗  {h:<40} MISSING")
+                    out(f"\n  TECH STACK    none detected")
+                out(f"\n  SECURITY HEADERS")
+                for h, info in result["security"].items():
+                    if info["present"]:
+                        out(f"    ✓  {h}")
+                    else:
+                        out(f"    ✗  {h:<40} MISSING")
+            if save_as_json:
+                path = save_json("headers", parts[1], result)
+                print(f"  saved → {path}")
+            elif save_as_txt:
+                path = save_txt("headers", parts[1], output_lines)
+                print(f"  saved → {path}")
+
+        case "outputs":
+            files = list_outputs()
+            if not files:
+                print(f"  no saved outputs found in {OUTPUT_DIR}")
+            else:
+                print(f"\n  saved outputs in {OUTPUT_DIR}\n")
+                for f in files:
+                    print(f"    {os.path.basename(f)}")
+                print()
 
         case "help":
             print(MENU)
