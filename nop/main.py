@@ -7,8 +7,11 @@ from nop.network.dns import dns_lookup
 from nop.network.sweep import sweep
 from nop.network.geoip import geoip_lookup
 from nop.network.ssl import get_ssl_info
+from nop.network.traceroute import traceroute
 from nop.osint.whois_lookup import whois_lookup
 from nop.osint.headers import get_headers
+from nop.osint.subdomains import subdomain_scan
+from nop.osint.reverse_dns import reverse_dns_sweep
 from nop.utils.validators import validate_target, is_valid_port, is_domain, is_cidr, is_ip, resolve
 
 BANNER = r"""
@@ -32,10 +35,13 @@ MENU = """
 │  sweep     │ <cidr>                      │
 │  geoip     │ <ip|domain>                 │
 │  ssl       │ <host> [port]               │
+│  traceroute│ <host>                      │
 ├────────────┼─────────────────────────────┤
 │ OSINT      │                             │
 │  whois     │ <domain>                    │
 │  headers   │ <url>                       │
+│  subdomains│ <domain>                    │
+│  rdns      │ <cidr|ip,ip,...>            │
 ├────────────┼─────────────────────────────┤
 │  help      │ show this menu              │
 │  exit      │ quit                        │
@@ -203,7 +209,6 @@ def handle_command(parts):
             if result.get("error"):
                 print(f"  ✗  {result['error']}")
             else:
-                # flag expiry warning if under 30 days
                 expiry_warn = " ⚠ EXPIRING SOON" if 0 <= result["days_left"] <= 30 else ""
                 expired_flag = " ✗ EXPIRED" if result["expired"] else ""
                 print()
@@ -218,6 +223,69 @@ def handle_command(parts):
                     print(f"\n  SUBJECT ALT NAMES")
                     for san in result["sans"]:
                         print(f"    {san}")
+
+        case "traceroute":
+            if len(parts) < 2:
+                print("Usage: traceroute <host>")
+                print("       traceroute google.com")
+                print("       traceroute 1.1.1.1")
+                return
+            t = validate_target(parts[1])
+            if not t["valid"]:
+                print(f"  ✗  {t['error']}")
+                return
+            print(f"  tracing route to {parts[1]}...")
+            result = traceroute(parts[1])
+            if result.get("error"):
+                print(f"  ✗  {result['error']}")
+            else:
+                print(f"\n  {'HOP':<6} {'IP':<18} {'HOST':<40} {'RTT'}")
+                print(f"  {'─'*6} {'─'*18} {'─'*40} {'─'*10}")
+                for hop in result["hops"]:
+                    ip = hop["ip"] or "*"
+                    host = hop["host"] or "*"
+                    rtt = f"{hop['rtt']} ms" if hop["rtt"] else "*"
+                    print(f"  {hop['hop']:<6} {ip:<18} {host:<40} {rtt}")
+
+        case "subdomains":
+            if len(parts) < 2:
+                print("Usage: subdomains <domain>")
+                print("       subdomains google.com")
+                return
+            if not is_domain(parts[1]):
+                print("  ✗  subdomains requires a domain name e.g. google.com")
+                return
+            print(f"  scanning subdomains for {parts[1]}...")
+            result = subdomain_scan(parts[1])
+            if not result["found"]:
+                print(f"  no subdomains found ({result['total_checked']} checked)")
+            else:
+                print(f"\n  {'SUBDOMAIN':<45} {'IP'}")
+                print(f"  {'─'*45} {'─'*16}")
+                for s in result["found"]:
+                    print(f"  {s['subdomain']:<45} {s['ip']}")
+                print(f"\n  {result['total_found']} found — {result['total_checked']} checked")
+
+        case "rdns":
+            if len(parts) < 2:
+                print("Usage: rdns <cidr>")
+                print("       rdns 192.168.1.0/24")
+                return
+            if not is_cidr(parts[1]):
+                print("  ✗  invalid CIDR range — use format 192.168.1.0/24")
+                return
+            print(f"  reverse DNS sweep of {parts[1]}...")
+            result = reverse_dns_sweep(parts[1])
+            if result.get("error"):
+                print(f"  ✗  {result['error']}")
+            elif not result["resolved"]:
+                print(f"  no hostnames resolved ({result['total_scanned']} scanned)")
+            else:
+                print(f"\n  {'IP':<20} {'HOSTNAME'}")
+                print(f"  {'─'*20} {'─'*40}")
+                for r in result["resolved"]:
+                    print(f"  {r['ip']:<20} {r['hostname']}")
+                print(f"\n  {result['total_resolved']} resolved — {result['total_scanned']} scanned")
 
         case "whois":
             if len(parts) < 2:
